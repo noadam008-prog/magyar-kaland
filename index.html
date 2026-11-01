@@ -38,8 +38,16 @@
   new MutationObserver(function (m, o) {
     if (document.getElementById("root").childElementCount) { var b = document.getElementById("boot"); if (b) b.remove(); o.disconnect(); }
   }).observe(document.getElementById("root"), { childList: true });
+  // Moving game pieces (balloons, bubbles) can be focused while partly off screen; never let that
+  // scroll a non-scrollable container and shift the whole screen sideways.
+  document.addEventListener("scroll", function (e) {
+    var t = e.target;
+    if (!(t instanceof Element) || !(t.scrollTop || t.scrollLeft)) return;
+    var cs = getComputedStyle(t);
+    if (cs.overflowX === "hidden" && cs.overflowY === "hidden") { t.scrollTop = 0; t.scrollLeft = 0; }
+  }, true);
   if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js");
 </script>
-<script src="app.js?v=ac14ed3287" defer></script>
+<script src="app.js?v=f7f6aeed41" defer></script>
 </body>
 </html>
