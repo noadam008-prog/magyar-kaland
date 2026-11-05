@@ -9987,7 +9987,7 @@ __d(function (global, require, _importDefault, _importAll, module, exports, dep)
       const nd = { ...done, [id]: true };
       setDone(nd);
       setWorld((w) => {
-        const me = { id: b.who, x: Math.min(0.92, tgt.x + 0.16), dy: 0.06, act: tgt.act };
+        const me = { id: b.who, x: Math.min(0.92, tgt.x + 0.14), dy: 0.06, sz: 0.62, act: tgt.act, noTap: true };
         const others = w.cast.filter((c) => c.id !== b.who);
         return { ...w, cast: [...others, me] };
       });
@@ -10118,7 +10118,7 @@ __d(function (global, require, _importDefault, _importAll, module, exports, dep)
         kids.push(
           h(
             View,
-            { key: "a" + c.id, style: { position: "absolute", left: c.x * w - As / 2, top: ground - As + (c.dy ?? 0) * H, zIndex: 5 } },
+            { key: "a" + c.id, pointerEvents: c.noTap ? "none" : "auto", style: { position: "absolute", left: c.x * w - As / 2, top: ground - As + (c.dy ?? 0) * H, zIndex: c.noTap ? 4 : 5 } },
             h(Pl.Pulse, { on: hint }, h(UI.Bouncy, { onPress: () => tapActor(c.id), label: L.entName(c.id), testID: hint || (act && beat.t === "find" && beat.answer === c.id) || (act && beat.tos && held && beat.to === c.id) || (act && beat.t === "copy" && held && beat.copies[c.id] && !done[c.id]) ? "answer" : "actor-" + c.id },
               h(Actor, { id: c.id, size: As, act: c.act, kick: kicks[c.id] ?? 0, outfit, wear: c.wear }))),
             c.plate
