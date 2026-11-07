@@ -9900,7 +9900,7 @@ __d(function (global, require, _importDefault, _importAll, module, exports, dep)
   }
 
   // emoji -> painted word picture (packs/pics.json); used when that picture exists
-  const PROP_PIC = { "🎁": "ajandek", "🧺": "kosar", "💡": "lampa", "🪟": "ablak", "✉️": "level", "🍽️": "tanyer", "🌳": "fa", "🌾": "szena", "🚜": "traktor", "🛋️": "kanape", "🪴": "virag", "📦": "doboz", "⛱️": "napernyo", "🌷": "tulipan", "🍂": "falevel", "🌻": "napraforgo", "⛄": "hoember", "☃️": "hoember", "🪑": "szek", "🧳": "borond", "⚽": "labda", "🧱": "kocka", "🥁": "dob", "🚪": "ajto", "🥛": "tej", "🌙": "hold", "⭐": "csillag", "☁️": "felho", "🌊": "hullam", "💖": "sziv" };
+  const PROP_PIC = { "🎁": "ajandek", "🧺": "kosar", "💡": "lampa", "🪟": "ablak", "✉️": "level", "🍽️": "tanyer", "🌳": "fa", "🌾": "szena", "🚜": "traktor", "🛋️": "kanape", "🪴": "virag", "📦": "doboz", "⛱️": "napernyo", "🌷": "tulipan", "🍂": "falevel", "🌻": "napraforgo", "⛄": "hoember", "☃️": "hoember", "🪑": "szek", "🧳": "borond", "⚽": "labda", "🧱": "kocka", "🥁": "dob", "🚪": "ajto", "🥛": "tej", "🌙": "hold", "⭐": "csillag", "☁️": "felho", "🌊": "hullam", "💖": "sziv", "💢": "fx_angry", "💦": "fx_sweat", "❗": "fx_surprise", "💨": "fx_wind", "💤": "fx_sleep", "💧": "fx_tear", "🎵": "fx_note", "🎶": "fx_notes", "😋": "fx_yum", "👋": "fx_wave", "✨": "fx_sparkle", "🏰": "fx_castle", "🤫": "fx_shh", "🐾": "fx_paw", "🪩": "fx_disco", "🎈": "fx_balloon", "🎉": "fx_party" };
   function PicOr({ e, size }) {
     const pid = PROP_PIC[e];
     const uri = Assets.useWebPic(pid ?? "__none__");
@@ -10642,7 +10642,7 @@ __d(function (global, require, _importDefault, _importAll, module, exports, dep)
       View,
       { style: { flex: 1, alignItems: "center", justifyContent: "center", gap: 24 } },
       h(Pl.Reveal, null, h(View, { style: [UI.styles.card, { width: 200, height: 200, borderRadius: 100, backgroundColor: "#FFF0F6" }] }, h(ItemIcon, { id: item, size: 140 }))),
-      h(Text, { style: { fontSize: 40 } }, "✨💖✨"),
+      h(View, { style: { flexDirection: "row", alignItems: "center", gap: 8 } }, h(PicOr, { e: "✨", size: 40 }), h(PicOr, { e: "💖", size: 48 }), h(PicOr, { e: "✨", size: 40 })),
       ready
         ? h(Pl.PopIn, null, h(Pl.Pulse, { on: true }, h(UI.Pill, { icon: "👗", label: "Öltöztesd fel!", color: "#FF8FC8", onPress: onDress })))
         : null,
