@@ -10748,5 +10748,88 @@ __d(function (global, require, _importDefault, _importAll, module, exports, dep)
   exports.Princess = Princess;
   exports.ITEMS = ITEMS;
 }, 6002, [89, 140, 252, 234, 146, 5625, 262, 5626, 5632, 312, 305, 313, 314, 1000, 22, 316, 6001, 5678, 5623, 255, 5644, 182]);
+// Interface emoji -> painted pictures. Wraps the JSX runtime: a <Text> whose whole content is one or more
+// emoji from MAP (and spaces) is drawn as pictures of the same size instead. Everything else is untouched.
+__d(function (g, r, i, a, m, e, d) {
+  "use strict";
+  const J = r(d[0]), RNText = r(d[1]).default, Img = r(d[2]).default, SS = r(d[3]).default, View = r(d[4]).default, Anim = r(d[5]).default;
+  const MAP = {"⬅️":"ui_back","▶️":"ui_play","◀️":"ui_prev","➡️":"ui_next","🔊":"ui_sound","🔁":"ui_again","🔄":"ui_again","🔒":"ui_lock","✍️":"ui_write","➕":"ui_plus","👀":"ui_eyes","🎤":"ui_mic","📒":"ui_album","🇭🇺":"ui_flag_hu","🇯🇵":"ui_flag_jp","👆":"ui_point","🧽":"ui_sponge","🗑️":"ui_bin","❓":"ui_question","❔":"ui_question","👂":"ui_ear","👏":"ui_clap","🗺️":"ui_map","📝":"ui_notes","↩️":"ui_undo","🔍":"ui_magnifier","🤔":"ui_think","☁️":"ui_cloud","⭐":"ui_star","🌟":"ui_star","💖":"ui_heart","🌙":"ui_moon","📖":"ui_book","✏️":"ui_pencil","🎨":"ui_paint","🎲":"ui_dice","📅":"ui_calendar","👗":"ui_dress","🧺":"ui_basket","🧸":"maci","✨":"fx_sparkle","🎉":"fx_party","🎈":"fx_balloon","🏰":"fx_castle","🎵":"fx_note","🎶":"fx_notes","👋":"fx_wave","🐾":"fx_paw","❗":"fx_surprise","💤":"fx_sleep","💦":"fx_sweat","💧":"fx_tear","💢":"fx_angry","💨":"fx_wind","😋":"fx_yum","🤫":"fx_shh","🪩":"fx_disco","👸":"uic_hercegno","🍰":"uic_sutemeny","🌍":"uic_vilag","🏠":"uic_haz","🛁":"uic_kad","🌳":"uic_fa","🦁":"uic_oroszlan","🐠":"uic_hal","🏙":"uic_varos","🍲":"uic_leves","🐉":"uic_sarkany","🖍":"uic_szines_ceruza","✈":"uic_repulo","🐓":"uic_kakas","🌈":"uic_szivarvany","🐰":"uic_nyul","☆":"ui_star_empty","💗":"ui_heart","🐮":"uic_tehen","🐳":"uic_balna","🚗":"uic_auto","🍎":"uic_alma","🥕":"uic_sargarepa","🥐":"uic_kifli","🛋️":"uic_kanape","🍳":"uic_serpenyo","👃":"uic_orr","👨‍👩‍👧":"uic_csalad","🌦️":"uic_eso","🥁":"uic_dob","🏃":"uic_fut","🔺":"uic_haromszog","🐞":"uic_katica","🧚":"uic_tunder","🎁":"uic_ajandek","😊":"uic_vidam","🔤":"ui_abc","🅰️":"ui_letter_a","🐤":"uic_csibe","🐘":"uic_elefant","🍓":"uic_eper","🥚":"uic_tojas","🕒":"uic_ora","🕐":"uic_ora","🕧":"uic_ora","⏰":"uic_ebresztoora","🌷":"uic_tulipan","☀️":"uic_nap","🍂":"uic_falevel","⛄":"uic_hoember","🌅":"uic_napkelte","🌇":"uic_naplemente","🛝":"uic_csuszda","🧩":"ui_puzzle","〰️":"ui_wavy","3️⃣":"ui_num3"};
+  const PATH = {"ui_back":"pics/ui_back.webp","ui_play":"pics/ui_play.webp","ui_prev":"pics/ui_prev.webp","ui_next":"pics/ui_next.webp","ui_sound":"pics/ui_sound.webp","ui_again":"pics/ui_again.webp","ui_lock":"pics/ui_lock.webp","ui_write":"pics/ui_write.webp","ui_plus":"pics/ui_plus.webp","ui_eyes":"pics/ui_eyes.webp","ui_mic":"pics/ui_mic.webp","ui_album":"pics/ui_album.webp","ui_flag_hu":"pics/ui_flag_hu.webp","ui_flag_jp":"pics/ui_flag_jp.webp","ui_point":"pics/ui_point.webp","ui_sponge":"pics/ui_sponge.webp","ui_bin":"pics/ui_bin.webp","ui_question":"pics/ui_question.webp","ui_ear":"pics/ui_ear.webp","ui_clap":"pics/ui_clap.webp","ui_map":"pics/ui_map.webp","ui_notes":"pics/ui_notes.webp","ui_undo":"pics/ui_undo.webp","ui_magnifier":"pics/ui_magnifier.webp","ui_think":"pics/ui_think.webp","ui_cloud":"pics/ui_cloud.webp","ui_star":"pics/ui_star.webp","ui_heart":"pics/ui_heart.webp","ui_moon":"pics/ui_moon.webp","ui_book":"pics/ui_book.webp","ui_pencil":"pics/ui_pencil.webp","ui_paint":"pics/ui_paint.webp","ui_dice":"pics/ui_dice.webp","ui_calendar":"pics/ui_calendar.webp","ui_dress":"pics/ui_dress.webp","ui_basket":"pics/ui_basket.webp","maci":"pics/char_maci.svg","fx_sparkle":"pics/fx_sparkle.webp","fx_party":"pics/fx_party.webp","fx_balloon":"pics/fx_balloon.webp","fx_castle":"pics/fx_castle.webp","fx_note":"pics/fx_note.webp","fx_notes":"pics/fx_notes.webp","fx_wave":"pics/fx_wave.webp","fx_paw":"pics/fx_paw.webp","fx_surprise":"pics/fx_surprise.webp","fx_sleep":"pics/fx_sleep.webp","fx_sweat":"pics/fx_sweat.webp","fx_tear":"pics/fx_tear.webp","fx_angry":"pics/fx_angry.webp","fx_wind":"pics/fx_wind.webp","fx_yum":"pics/fx_yum.webp","fx_shh":"pics/fx_shh.webp","fx_disco":"pics/fx_disco.webp","uic_hercegno":"pics/uic_hercegno.webp","uic_sutemeny":"pics/uic_sutemeny.webp","uic_vilag":"pics/uic_vilag.webp","uic_haz":"pics/uic_haz.webp","uic_kad":"pics/uic_kad.webp","uic_fa":"pics/uic_fa.webp","uic_oroszlan":"pics/uic_oroszlan.webp","uic_hal":"pics/uic_hal.webp","uic_varos":"pics/uic_varos.webp","uic_leves":"pics/uic_leves.webp","uic_sarkany":"pics/uic_sarkany.webp","uic_szines_ceruza":"pics/uic_szines_ceruza.webp","uic_repulo":"pics/uic_repulo.webp","uic_kakas":"pics/uic_kakas.webp","uic_szivarvany":"pics/uic_szivarvany.webp","uic_nyul":"pics/uic_nyul.webp","ui_star_empty":"pics/ui_star_empty.webp","uic_tehen":"pics/uic_tehen.webp","uic_balna":"pics/uic_balna.webp","uic_auto":"pics/uic_auto.webp","uic_alma":"pics/uic_alma.webp","uic_sargarepa":"pics/uic_sargarepa.webp","uic_kifli":"pics/uic_kifli.webp","uic_kanape":"pics/uic_kanape.webp","uic_serpenyo":"pics/uic_serpenyo.webp","uic_orr":"pics/uic_orr.webp","uic_csalad":"pics/uic_csalad.webp","uic_eso":"pics/uic_eso.webp","uic_dob":"pics/uic_dob.webp","uic_fut":"pics/uic_fut.webp","uic_haromszog":"pics/uic_haromszog.webp","uic_katica":"pics/uic_katica.webp","uic_tunder":"pics/uic_tunder.webp","uic_ajandek":"pics/uic_ajandek.webp","uic_vidam":"pics/uic_vidam.webp","ui_abc":"pics/ui_abc.webp","ui_letter_a":"pics/ui_letter_a.webp","uic_csibe":"pics/uic_csibe.webp","uic_elefant":"pics/uic_elefant.webp","uic_eper":"pics/uic_eper.webp","uic_tojas":"pics/uic_tojas.webp","uic_ora":"pics/uic_ora.webp","uic_ebresztoora":"pics/uic_ebresztoora.webp","uic_tulipan":"pics/uic_tulipan.webp","uic_nap":"pics/uic_nap.webp","uic_falevel":"pics/uic_falevel.webp","uic_hoember":"pics/uic_hoember.webp","uic_napkelte":"pics/uic_napkelte.webp","uic_naplemente":"pics/uic_naplemente.webp","uic_csuszda":"pics/uic_csuszda.webp","ui_puzzle":"pics/ui_puzzle.webp","ui_wavy":"pics/ui_wavy.webp","ui_num3":"pics/ui_num3.webp"};
+  const strip = (s) => s.replace(/️/g, "");
+  const M = {};
+  for (const k of Object.keys(MAP)) M[strip(k)] = MAP[k];
+  const keys = Object.keys(M).sort((x, y) => y.length - x.length);
+  const toks = (s) => {
+    s = strip(s).trim();
+    if (!s) return null;
+    const out = [];
+    let i = 0;
+    while (i < s.length) {
+      if (s[i] === " ") { i++; continue; }
+      const k = keys.find((k) => s.startsWith(k, i));
+      if (!k) return null;
+      out.push(M[k]);
+      i += k.length;
+    }
+    return out;
+  };
+  // emoji inside a sentence: "Írd le (🔒)" -> ["Írd le (", {id: "ui_lock"}, ")"]; null when there is none
+  const QUICK = /[\u2190-\u2BFF\u3030\u303D\uD83C-\uDBFF]/;
+  const mix = (s0) => {
+    if (!QUICK.test(s0)) return null;
+    const s = strip(s0);
+    const out = [];
+    let buf = "", found = false;
+    for (let i = 0; i < s.length; ) {
+      const k = keys.find((k) => s.startsWith(k, i));
+      if (k) { if (buf) out.push(buf); buf = ""; out.push({ id: M[k] }); found = true; i += k.length; }
+      else { buf += s[i]; i++; }
+    }
+    if (buf) out.push(buf);
+    return found ? out : null;
+  };
+  const pic = (id, fs, n) => J.__jsx(Img, { source: { uri: PATH[id] }, style: { width: fs * 1.15, height: fs * 1.15, marginHorizontal: fs * 0.08, marginBottom: -fs * 0.18 }, resizeMode: "contain", accessible: false }, "e" + n);
+  const inlineAll = (parts, fs) => parts.map((p, n) => (typeof p === "string" ? p : pic(p.id, fs, n)));
+  const TEXT_ONLY = new Set(["fontSize", "lineHeight", "color", "fontWeight", "fontFamily", "textAlign", "letterSpacing", "textShadowColor", "textShadowOffset", "textShadowRadius", "fontStyle", "includeFontPadding", "textDecorationLine", "textTransform", "writingDirection"]);
+  const wrap = (orig) =>
+    function (type, props, key) {
+      const animated = type === Anim.Text;
+      if ((type === RNText || animated) && props && typeof props.children === "string" && props.children.length <= 24) {
+        const t = toks(props.children);
+        if (t && t.length) {
+          const st = SS.flatten(props.style) || {};
+          const sz = (st.fontSize || 16) * 1.1;
+          const box = {};
+          for (const k in st) if (!TEXT_ONLY.has(k)) box[k] = st[k];
+          const imgs = t.map((id, n) => J.__jsx(Img, { source: { uri: PATH[id] }, style: { width: sz, height: sz }, resizeMode: "contain", accessible: false }, String(n)));
+          return J.__jsxs(animated ? Anim.View : View, { style: [{ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: sz * 0.12 }, box], pointerEvents: props.pointerEvents ?? "none", accessible: false, testID: props.testID, children: imgs }, key);
+        }
+      }
+      if ((type === RNText || animated) && props && props.children != null) {
+        const c = props.children;
+        const fs = () => (SS.flatten(props.style) || {}).fontSize || 16;
+        if (typeof c === "string" && c.length < 400) {
+          const m = mix(c);
+          if (m) return orig(type, { ...props, children: inlineAll(m, fs()) }, key);
+        } else if (Array.isArray(c) && c.some((x) => typeof x === "string" && QUICK.test(x))) {
+          let changed = false;
+          const out = [];
+          for (const x of c) {
+            const m = typeof x === "string" ? mix(x) : null;
+            if (m) { changed = true; out.push(...inlineAll(m, fs())); } else out.push(x);
+          }
+          if (changed) return orig(type, { ...props, children: out }, key);
+        }
+      }
+      return orig(type, props, key);
+    };
+  if (!J.__jsx) {
+    J.__jsx = J.jsx;
+    J.__jsxs = J.jsxs;
+    J.jsx = wrap(J.__jsx);
+    J.jsxs = wrap(J.__jsxs);
+  }
+}, 7001, [22, 234, 224, 24, 146, 140]);
+__r(7001);
 __r(3);
 __r(0);
