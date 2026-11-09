@@ -10902,23 +10902,13 @@ __d(function (g, r, i, a, m, e, d) {
   }
 }, 7001, [22, 234, 224, 24, 146, 140]);
 __r(7001);
-// Progress sync between devices (Supabase). Each device has a family code; devices with the same code share
-// her progress. Nothing is ever overwritten: local and online progress are merged (higher counts and stars,
-// all wardrobe items, longer sticker list); device settings stay per device.
+// Move her progress between devices without any account: "Copy progress" on one device, "Paste progress" on the
+// other (iPhone and iPad share the clipboard). Nothing is overwritten: both sides are merged (higher counts and
+// stars, all wardrobe items, longer sticker list); device settings stay per device.
 __d(function (g, r, i, a, m, e, d) {
   "use strict";
   const React = r(d[0]), View = r(d[1]).default, Text = r(d[2]).default, TextInput = r(d[3]).default, UI = r(d[4]), Th = r(d[5]), J = r(d[6]);
-  const URL = "";
-  const KEY = "";
-  const on = !!(URL && KEY);
-  const CODE_KEY = "magyar-kaland-family";
-  const ABC = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
   const ls = () => { try { return window.localStorage; } catch (e) { return null; } };
-  const newCode = () => { const b = new Uint8Array(8); (window.crypto || {}).getRandomValues ? crypto.getRandomValues(b) : b.forEach((_, i) => (b[i] = Math.random() * 256)); return [...b].map((x) => ABC[x % ABC.length]).join(""); };
-  const getCode = () => { const s = ls(); let c = s && s.getItem(CODE_KEY); if (!c && s) { c = newCode(); s.setItem(CODE_KEY, c); } return c; };
-  const show = (c) => (c ? c.slice(0, 4) + "-" + c.slice(4) : "");
-  const clean = (t) => String(t || "").toUpperCase().replace(/[^A-Z0-9]/g, "").replace(/[O]/g, "0").replace(/[I]/g, "1");
-
   // ---- merge: never lose progress ----
   const num = (x) => (typeof x === "number" ? x : 0);
   const maxMap = (a = {}, b = {}) => { const o = { ...b, ...a }; for (const k in b) if (typeof b[k] === "number" || typeof a[k] === "number") o[k] = Math.max(num(a[k]), num(b[k])); return o; };
@@ -10944,76 +10934,69 @@ __d(function (g, r, i, a, m, e, d) {
   const DEVICE = ["echoMic", "hints", "japan", "music", "echo", "choices"];
   const shared = (s) => { const o = { ...s }; for (const k of DEVICE) delete o[k]; return o; };
 
-  // ---- online ----
-  const rpc = (name, body) =>
-    fetch(URL + "/rest/v1/rpc/" + name, { method: "POST", headers: { apikey: KEY, Authorization: "Bearer " + KEY, "Content-Type": "application/json" }, body: JSON.stringify(body) })
-      .then((res) => (res.ok ? res.json() : Promise.reject(new Error("HTTP " + res.status))));
-  let apply = null, latest = null, timer = null, lastSent = "", busy = false;
-  const status = { state: on ? "idle" : "off", at: null };
-  const subs = new Set();
-  const set = (st) => { status.state = st; if (st === "ok") status.at = new Date(); subs.forEach((f) => f({ ...status })); };
-  const pull = async () => {
-    if (!on || !apply) return;
-    try {
-      set("syncing");
-      const remote = await rpc("get_progress", { p_code: getCode() });
-      if (remote) apply((local) => ({ ...merge(local, remote), ...Object.fromEntries(DEVICE.filter((k) => k in local).map((k) => [k, local[k]])) }));
-      set("ok");
-    } catch (e) { set("error"); }
+  let apply = null, latest = null;
+  window.__sync = { attach: (fn) => { apply = fn; }, changed: (s) => { latest = s; } };
+
+  // ---- progress as text: "MK1" + deflate + base64 (or plain JSON when the browser cannot compress) ----
+  const b64 = (u8) => { let s = ""; for (let i = 0; i < u8.length; i += 0x8000) s += String.fromCharCode.apply(null, u8.subarray(i, i + 0x8000)); return btoa(s); };
+  const unb64 = (t) => Uint8Array.from(atob(t), (c) => c.charCodeAt(0));
+  const pipe = async (u8, stream) => new Uint8Array(await new Response(new Blob([u8]).stream().pipeThrough(stream)).arrayBuffer());
+  const pack = async (obj) => {
+    const json = new TextEncoder().encode(JSON.stringify(obj));
+    if (typeof CompressionStream !== "undefined") return "MK1z" + b64(await pipe(json, new CompressionStream("deflate-raw")));
+    return "MK1j" + b64(json);
   };
-  const push = async () => {
-    if (!on || !latest || busy) return;
-    busy = true;
-    try {
-      set("syncing");
-      const remote = await rpc("get_progress", { p_code: getCode() });
-      const merged = merge(latest, remote || {});
-      const body = JSON.stringify(shared(merged));
-      if (body !== lastSent) { await rpc("save_progress", { p_code: getCode(), p_data: shared(merged) }); lastSent = body; }
-      if (JSON.stringify(shared(latest)) !== body && apply) apply((local) => ({ ...merge(local, merged), ...Object.fromEntries(DEVICE.filter((k) => k in local).map((k) => [k, local[k]])) }));
-      set("ok");
-    } catch (e) { set("error"); }
-    busy = false;
+  const unpack = async (text) => {
+    const t = String(text || "").replace(/\s+/g, "");
+    const i = t.indexOf("MK1");
+    if (i < 0) throw new Error("no code");
+    const kind = t[i + 3], body = t.slice(i + 4);
+    const bytes = kind === "z" ? await pipe(unb64(body), new DecompressionStream("deflate-raw")) : unb64(body);
+    const obj = JSON.parse(new TextDecoder().decode(bytes));
+    if (!obj || typeof obj !== "object" || !obj.lessons) throw new Error("not progress");
+    return obj;
   };
-  window.__sync = {
-    attach: (fn) => { apply = fn; pull(); },
-    changed: (s) => { latest = s; clearTimeout(timer); timer = setTimeout(push, 3000); },
-  };
-  if (typeof document !== "undefined") document.addEventListener("visibilitychange", () => document.visibilityState === "visible" && pull());
+  const keepDevice = (local, merged) => ({ ...merged, ...Object.fromEntries(DEVICE.filter((k) => k in local).map((k) => [k, local[k]])) });
 
   // ---- parent area panel ----
   function SyncPanel() {
-    const [st, setSt] = React.useState({ ...status });
-    const [code, setCode] = React.useState(on ? getCode() : "");
-    const [input, setInput] = React.useState("");
     const [msg, setMsg] = React.useState("");
-    React.useEffect(() => { subs.add(setSt); return () => subs.delete(setSt); }, []);
+    const [text, setText] = React.useState("");
     const F = Th.F, T = Th.T, C = Th.C;
     const title = { fontFamily: F.bold, fontSize: T.m, color: C.ink };
     const small = { fontFamily: F.semi, fontSize: T.s, color: C.inkSoft };
     const h = (t, p, ...k) => J.jsx(t, k.length ? { ...p, children: k.length === 1 ? k[0] : k } : p);
-    const use = async () => {
-      const c = clean(input);
-      if (c.length !== 8) return void setMsg("A code has 8 letters and numbers, e.g. K7QX-M2PD.");
-      ls().setItem(CODE_KEY, c);
-      setCode(c);
-      setInput("");
-      setMsg("Linked. Progress from both devices is combined.");
-      lastSent = "";
-      await pull();
-      clearTimeout(timer);
-      push();
+    const copy = async () => {
+      try {
+        const code = await pack(shared(latest || JSON.parse(ls().getItem("magyar-kaland-v1") || "{}")));
+        await navigator.clipboard.writeText(code);
+        setMsg("Copied. On the other device: Parents → Paste progress.");
+      } catch (e) {
+        setMsg("Could not copy here. Try again, or update the browser.");
+      }
     };
-    const when = st.at ? st.at.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "";
-    const line = !on ? "Not set up yet." : st.state === "syncing" ? "Syncing…" : st.state === "error" ? "Offline. It will sync again when there is internet." : st.at ? "Saved online at " + when + "." : "Saved online automatically.";
+    const add = async (raw) => {
+      try {
+        const remote = await unpack(raw);
+        if (!apply) throw new Error("not ready");
+        apply((local) => keepDevice(local, merge(local, remote)));
+        setText("");
+        const n = Object.keys(remote.lessons || {}).length;
+        setMsg("Done. Progress from the other device is added (" + n + " lessons). Nothing here was lost.");
+      } catch (e) {
+        setMsg("That is not a progress code. Copy it again on the other device.");
+      }
+    };
+    const paste = async () => {
+      try { await add(await navigator.clipboard.readText()); } catch (e) { setMsg("Paste the code into the box below instead."); }
+    };
     return h(View, { style: [UI.styles.card, { alignItems: "stretch", padding: 18, gap: 12, borderRadius: 20 }] },
-      h(Text, { style: title }, "Sync between devices · デバイス間で同期"),
-      h(Text, { style: small }, "Her progress is saved online and combined across every device that uses the same family code. " + line),
-      on ? h(Text, { selectable: true, style: { fontFamily: F.bold, fontSize: 30, color: C.ink, letterSpacing: 3, textAlign: "center" }, testID: "family-code" }, show(code)) : null,
-      on ? h(Text, { style: small }, "On another phone or tablet: open the app, go to Parents, and enter this code below.") : null,
-      on ? h(TextInput, { value: input, onChangeText: setInput, placeholder: "Code from another device", autoCapitalize: "characters", autoCorrect: false, testID: "family-input", style: { fontFamily: F.semi, fontSize: T.m, color: C.ink, backgroundColor: "#F2F5FA", borderRadius: 14, paddingHorizontal: 14, paddingVertical: 12 } }) : null,
-      on ? h(UI.Pill, { label: "Use this code", color: C.good, onPress: use }) : null,
-      msg ? h(Text, { style: small }, msg) : null,
+      h(Text, { style: title }, "Move progress to another device \u00b7 \u9032\u307f\u5177\u5408\u3092\u79fb\u3059"),
+      h(Text, { style: small }, "Progress is saved on each device. To continue on your iPad: tap Copy progress here, then on the iPad open Parents and tap Paste progress (same Apple ID: the clipboard is shared). Both devices' progress is combined; nothing is lost."),
+      h(UI.Pill, { label: "Copy progress", color: C.good, onPress: copy }),
+      h(UI.Pill, { label: "Paste progress", color: C.sun, onPress: paste }),
+      h(TextInput, { value: text, onChangeText: (t) => (setText(t), t.includes("MK1") && add(t)), placeholder: "…or paste the code here", autoCapitalize: "none", autoCorrect: false, testID: "progress-input", style: { fontFamily: F.semi, fontSize: T.s, color: C.ink, backgroundColor: "#F2F5FA", borderRadius: 14, paddingHorizontal: 14, paddingVertical: 12 } }),
+      msg ? h(Text, { style: small, testID: "progress-msg" }, msg) : null,
     );
   }
   e.SyncPanel = SyncPanel;
