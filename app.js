@@ -10902,9 +10902,10 @@ __d(function (g, r, i, a, m, e, d) {
   }
 }, 7001, [22, 234, 224, 24, 146, 140]);
 __r(7001);
-// Move her progress between devices without any account: "Copy progress" on one device, "Paste progress" on the
-// other (iPhone and iPad share the clipboard). Nothing is overwritten: both sides are merged (higher counts and
-// stars, all wardrobe items, longer sticker list); device settings stay per device.
+// Automatic progress sync: every device that opens the app shares one online record (Supabase), so she continues
+// where she left off on the iPhone or the iPad with nothing to set up. Nothing is ever overwritten: the device's
+// progress and the online progress are merged (higher counts and stars, all wardrobe items, longer sticker list);
+// device settings stay per device. Works offline and catches up later.
 __d(function (g, r, i, a, m, e, d) {
   "use strict";
   const React = r(d[0]), View = r(d[1]).default, Text = r(d[2]).default, TextInput = r(d[3]).default, UI = r(d[4]), Th = r(d[5]), J = r(d[6]);
@@ -10934,73 +10935,72 @@ __d(function (g, r, i, a, m, e, d) {
   const DEVICE = ["echoMic", "hints", "japan", "music", "echo", "choices"];
   const shared = (s) => { const o = { ...s }; for (const k of DEVICE) delete o[k]; return o; };
 
-  let apply = null, latest = null;
-  window.__sync = { attach: (fn) => { apply = fn; }, changed: (s) => { latest = s; } };
-
-  // ---- progress as text: "MK1" + deflate + base64 (or plain JSON when the browser cannot compress) ----
-  const b64 = (u8) => { let s = ""; for (let i = 0; i < u8.length; i += 0x8000) s += String.fromCharCode.apply(null, u8.subarray(i, i + 0x8000)); return btoa(s); };
-  const unb64 = (t) => Uint8Array.from(atob(t), (c) => c.charCodeAt(0));
-  const pipe = async (u8, stream) => new Uint8Array(await new Response(new Blob([u8]).stream().pipeThrough(stream)).arrayBuffer());
-  const pack = async (obj) => {
-    const json = new TextEncoder().encode(JSON.stringify(obj));
-    if (typeof CompressionStream !== "undefined") return "MK1z" + b64(await pipe(json, new CompressionStream("deflate-raw")));
-    return "MK1j" + b64(json);
-  };
-  const unpack = async (text) => {
-    const t = String(text || "").replace(/\s+/g, "");
-    const i = t.indexOf("MK1");
-    if (i < 0) throw new Error("no code");
-    const kind = t[i + 3], body = t.slice(i + 4);
-    const bytes = kind === "z" ? await pipe(unb64(body), new DecompressionStream("deflate-raw")) : unb64(body);
-    const obj = JSON.parse(new TextDecoder().decode(bytes));
-    if (!obj || typeof obj !== "object" || !obj.lessons) throw new Error("not progress");
-    return obj;
-  };
+  const URL = "https://kmafqbicazphanusppij.supabase.co";
+  const KEY = "sb_publishable_Ui4A2HoMF65f_u4o_KesHg_2cFmu9SS";
+  const CODE = "CTN2FVAB";
+  const on = !!(URL && KEY && CODE) && typeof fetch !== "undefined";
+  const rpc = (name, body) =>
+    fetch(URL + "/rest/v1/rpc/" + name, { method: "POST", headers: { apikey: KEY, Authorization: "Bearer " + KEY, "Content-Type": "application/json" }, body: JSON.stringify(body) })
+      .then((res) => (res.ok ? res.json() : Promise.reject(new Error("HTTP " + res.status))));
   const keepDevice = (local, merged) => ({ ...merged, ...Object.fromEntries(DEVICE.filter((k) => k in local).map((k) => [k, local[k]])) });
+  let apply = null, latest = null, timer = null, lastSent = "", busy = false, again = false;
+  const status = { state: on ? "idle" : "off", at: null };
+  const subs = new Set();
+  const set = (st) => { status.state = st; if (st === "ok") status.at = new Date(); subs.forEach((f) => f({ ...status })); };
+  // pull: bring in what the other device did
+  const pull = async () => {
+    if (!on || !apply) return;
+    try {
+      set("syncing");
+      const remote = await rpc("get_progress", { p_code: CODE });
+      if (remote) apply((local) => keepDevice(local, merge(local, remote)));
+      set("ok");
+    } catch (e) { set("error"); }
+  };
+  // push: merge with what is online (never overwrite), save, and take the merged result here too
+  const push = async () => {
+    if (!on || !latest) return;
+    if (busy) return void (again = true);
+    busy = true;
+    try {
+      set("syncing");
+      const remote = await rpc("get_progress", { p_code: CODE });
+      const merged = merge(latest, remote || {});
+      const out = shared(merged);
+      const body = JSON.stringify(out);
+      if (body !== lastSent) { await rpc("save_progress", { p_code: CODE, p_data: out }); lastSent = body; }
+      if (JSON.stringify(shared(latest)) !== body && apply) apply((local) => keepDevice(local, merge(local, merged)));
+      set("ok");
+    } catch (e) { set("error"); }
+    busy = false;
+    if (again) { again = false; push(); }
+  };
+  window.__sync = {
+    attach: (fn) => { apply = fn; pull(); },
+    changed: (s) => { latest = s; clearTimeout(timer); timer = setTimeout(push, 2500); },
+  };
+  if (typeof document !== "undefined") {
+    // coming back to the app (switching from the other device): load the latest; leaving it: save right away
+    document.addEventListener("visibilitychange", () => (document.visibilityState === "visible" ? pull() : (clearTimeout(timer), push())));
+  }
+  if (typeof window !== "undefined") setInterval(() => document.visibilityState === "visible" && pull(), 120000);
 
-  // ---- parent area panel ----
+  // parent area: just a status line, nothing to do
   function SyncPanel() {
-    const [msg, setMsg] = React.useState("");
-    const [text, setText] = React.useState("");
+    const [st, setSt] = React.useState({ ...status });
+    React.useEffect(() => { subs.add(setSt); return () => subs.delete(setSt); }, []);
     const F = Th.F, T = Th.T, C = Th.C;
-    const title = { fontFamily: F.bold, fontSize: T.m, color: C.ink };
-    const small = { fontFamily: F.semi, fontSize: T.s, color: C.inkSoft };
     const h = (t, p, ...k) => J.jsx(t, k.length ? { ...p, children: k.length === 1 ? k[0] : k } : p);
-    const copy = async () => {
-      try {
-        const code = await pack(shared(latest || JSON.parse(ls().getItem("magyar-kaland-v1") || "{}")));
-        await navigator.clipboard.writeText(code);
-        setMsg("Copied. On the other device: Parents → Paste progress.");
-      } catch (e) {
-        setMsg("Could not copy here. Try again, or update the browser.");
-      }
-    };
-    const add = async (raw) => {
-      try {
-        const remote = await unpack(raw);
-        if (!apply) throw new Error("not ready");
-        apply((local) => keepDevice(local, merge(local, remote)));
-        setText("");
-        const n = Object.keys(remote.lessons || {}).length;
-        setMsg("Done. Progress from the other device is added (" + n + " lessons). Nothing here was lost.");
-      } catch (e) {
-        setMsg("That is not a progress code. Copy it again on the other device.");
-      }
-    };
-    const paste = async () => {
-      try { await add(await navigator.clipboard.readText()); } catch (e) { setMsg("Paste the code into the box below instead."); }
-    };
-    return h(View, { style: [UI.styles.card, { alignItems: "stretch", padding: 18, gap: 12, borderRadius: 20 }] },
-      h(Text, { style: title }, "Move progress to another device \u00b7 \u9032\u307f\u5177\u5408\u3092\u79fb\u3059"),
-      h(Text, { style: small }, "Progress is saved on each device. To continue on your iPad: tap Copy progress here, then on the iPad open Parents and tap Paste progress (same Apple ID: the clipboard is shared). Both devices' progress is combined; nothing is lost."),
-      h(UI.Pill, { label: "Copy progress", color: C.good, onPress: copy }),
-      h(UI.Pill, { label: "Paste progress", color: C.sun, onPress: paste }),
-      h(TextInput, { value: text, onChangeText: (t) => (setText(t), t.includes("MK1") && add(t)), placeholder: "…or paste the code here", autoCapitalize: "none", autoCorrect: false, testID: "progress-input", style: { fontFamily: F.semi, fontSize: T.s, color: C.ink, backgroundColor: "#F2F5FA", borderRadius: 14, paddingHorizontal: 14, paddingVertical: 12 } }),
-      msg ? h(Text, { style: small, testID: "progress-msg" }, msg) : null,
+    const when = st.at ? st.at.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "";
+    const line = !on ? "Sync is off." : st.state === "syncing" ? "Saving…" : st.state === "error" ? "No internet right now. It saves again automatically when there is." : st.at ? "Saved online at " + when + ". Her iPhone and iPad stay in step automatically." : "Her iPhone and iPad stay in step automatically.";
+    return h(View, { style: [UI.styles.card, { alignItems: "stretch", padding: 18, gap: 8, borderRadius: 20 }] },
+      h(Text, { style: { fontFamily: F.bold, fontSize: T.m, color: C.ink } }, "Progress on all devices · 同期"),
+      h(Text, { style: { fontFamily: F.semi, fontSize: T.s, color: C.inkSoft }, testID: "sync-status" }, line),
     );
   }
   e.SyncPanel = SyncPanel;
   e.merge = merge;
+  e.syncNow = () => pull();
 }, 7002, [89, 146, 234, 5670, 314, 313, 22]);
 __r(7002);
 __r(3);
