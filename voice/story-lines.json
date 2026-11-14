@@ -1584,5 +1584,11 @@
   "di_oszi_sal": "őszi sál",
   "di_szulinapi_korona": "születésnapi korona",
   "di_hopehely_tiara": "hópelyhes tiara",
-  "di_karacsonyi_ruha": "karácsonyi ruha"
+  "di_karacsonyi_ruha": "karácsonyi ruha",
+  "wn_parok": "Párkereső!",
+  "par_start": "Keresd meg a párokat! Fordítsd meg a kártyákat!",
+  "par_nezd": "Nézd meg jól a képeket!",
+  "par_ok": "Egy pár!",
+  "par_done": "Megvan az összes pár! Ügyes vagy!",
+  "par_tobb": "Most több kártya jön!"
 }
