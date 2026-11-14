@@ -11003,9 +11003,10 @@ __d(function (g, r, i, a, m, e, d) {
   e.syncNow = () => pull();
 }, 7002, [89, 146, 234, 5670, 314, 313, 22]);
 __r(7002);
-// Párkereső: a memory game that grows. Round by round there are more cards: 2 pairs, 3, 4, 5, 6, then 8.
-// Each round is one topic (farm animals, fruit, vehicles…); every flip says the word. Matching cards stay open,
-// a wrong pair just turns back (no "wrong" sound). The level is kept in games.parok_szint, so it syncs.
+// Párkereső: the classic memory game, growing. All cards lie face down; a tap turns over one card (and says
+// the word), a second tap a second card: a pair stays open, otherwise both turn back (no "wrong" sound).
+// Round by round there are more cards: 2 pairs, 3, 4, 5, 6, then 8. Each round is one topic.
+// The level is kept in games.parok_szint, so it syncs.
 __d(function (g, r, i, a, m, e, d) {
   "use strict";
   const React = r(d[0]), View = r(d[1]).default, Text = r(d[2]).default, UI = r(d[3]), Th = r(d[4]), V = r(d[5]), J = r(d[6]);
@@ -11014,7 +11015,6 @@ __d(function (g, r, i, a, m, e, d) {
   const h = (t, p, ...k) => J.jsx(t, k.length ? { ...p, children: k.length === 1 ? k[0] : k } : p);
   const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
   const LEVELS = [2, 3, 4, 5, 6, 8]; // pairs per round
-  const PEEK = [3000, 2500, 2000, 1500, 0, 0]; // cards shown face up first, while the rounds are small
   // everyday words a 3–4-year-old knows, per topic (plus any word of the topic she has already heard)
   const EASY = {"tanya": ["kutya", "cica", "tehen", "lo", "malac", "kacsa", "tyuk", "kecske", "barany", "nyul", "liba", "kakas", "szamar", "eger"], "gyumolcs": ["alma", "banan", "korte", "szolo", "eper", "narancs", "citrom", "cseresznye", "dinnye"], "jarmu": ["auto", "busz", "vonat", "repulo", "hajo", "bicikli", "motor", "traktor", "helikopter", "tuzoltoauto"], "vadon": ["oroszlan", "elefant", "zsiraf", "majom", "medve", "tigris", "zebra", "roka", "farkas"], "ruha": ["sapka", "cipo", "zokni", "nadrag", "polo", "kabat", "sal", "kesztyu", "szoknya", "pizsama"], "zoldseg": ["sargarepa", "paradicsom", "uborka", "burgonya", "hagyma", "paprika", "borso"], "jatek": ["labda", "baba", "maci", "kocka", "lufi"], "viz": ["hal", "delfin", "balna", "rak", "polip", "beka"], "etel": ["kenyer", "tej", "sajt", "tojas", "leves", "torta", "keksz", "fagyi"], "konyha": ["kanal", "villa", "tanyer", "pohar", "bogre", "labas"], "furdo": ["fogkefe", "szappan", "torolkozo", "kad", "fesu"], "otthon": ["agy", "asztal", "szek", "lampa", "ajto", "ablak", "kanape", "ora"], "kint": ["fa", "virag", "nap", "hold", "felho", "csillag"]};
   const THEMES = Object.keys(EASY);
@@ -11040,13 +11040,15 @@ __d(function (g, r, i, a, m, e, d) {
     const [round, setRound] = useState(0);
     const [deck, setDeck] = useState(null);
     const [theme, setTheme] = useState(null);
-    const [open, setOpen] = useState([]);
+    const [open, setOpenState] = useState([]);
+    const openRef = useRef([]);
+    const setOpen = (x) => ((openRef.current = x), setOpenState(x));
     const [found, setFound] = useState([]);
-    const [peek, setPeek] = useState(false);
     const [done, setDone] = useState(false);
     const [fire, setFire] = useState(0);
     const [area, setArea] = useState(null);
     const busy = useRef(false);
+    const intro = useRef(false);
     const alive = useRef(true);
     useEffect(() => () => ((alive.current = false), V.hush()), []);
     // deal a new round
@@ -11064,35 +11066,32 @@ __d(function (g, r, i, a, m, e, d) {
       setOpen([]);
       setFound([]);
       setDone(false);
-      busy.current = true;
+      busy.current = false;
+      intro.current = true;
+      // load the round's words in the background, so every flip speaks; the short introduction stops at her first tap
+      pick.forEach((w) => Promise.resolve(Assets.webAudioUri("w_" + w.id)).catch(() => null));
       (async () => {
-        // load the round's words before it starts, so every flip speaks
-        await Promise.all(pick.map((w) => Promise.resolve(Assets.webAudioUri("w_" + w.id)).catch(() => null)));
-        if (!alive.current) return;
-        await V.say(round === 0 ? "par_start" : "par_tobb");
-        await V.say("wn_" + t);
-        if (PEEK[level]) {
-          setPeek(true);
-          await V.say("par_nezd");
-          await sleep(PEEK[level]);
-          if (!alive.current) return;
-          setPeek(false);
+        for (const k of [round === 0 ? "par_start" : "par_tobb", "wn_" + t]) {
+          if (!alive.current || !intro.current) return;
+          await V.say(k);
         }
-        busy.current = false;
+        intro.current = false;
       })();
     }, [round]);
     const tap = async (idx) => {
       if (!deck || busy.current || done) return;
-      if (found.includes(deck.cards[idx].w.id) || open.includes(idx)) return;
+      intro.current = false;
+      const cur = openRef.current;
+      if (found.includes(deck.cards[idx].w.id) || cur.includes(idx) || cur.length >= 2) return;
       const c = deck.cards[idx];
       V.hush();
-      if (open.length === 0) {
+      if (cur.length === 0) {
         setOpen([idx]);
         V.say("w_" + c.w.id);
         return;
       }
-      const first = deck.cards[open[0]];
-      setOpen([open[0], idx]);
+      const first = deck.cards[cur[0]];
+      setOpen([cur[0], idx]);
       busy.current = true;
       await V.say("w_" + c.w.id);
       if (first.w.id === c.w.id) {
@@ -11134,7 +11133,7 @@ __d(function (g, r, i, a, m, e, d) {
         LEVELS.map((_, k) => h(View, { key: k, style: { width: 12, height: 12, borderRadius: 6, backgroundColor: k <= level ? "#B197FC" : "#E9DCEB" } }))),
       h(View, { style: { flex: 1, paddingHorizontal: 6, paddingBottom: ins.bottom + 8 }, onLayout: (ev) => { const { width, height } = ev.nativeEvent.layout; setArea((a0) => (a0 && Math.abs(a0.w - width) < 1 && Math.abs(a0.h - (height - 90)) < 1 ? a0 : { w: width, h: height - 90 })); } },
         deck ? h(View, { style: { flex: 1, flexDirection: "row", flexWrap: "wrap", alignContent: "center", justifyContent: "center", gap: 12, width: cols * size + (cols - 1) * 12, alignSelf: "center" } },
-          deck.cards.map((c, k) => h(Card, { key: round + "-" + c.k, w: c.w, size, back: deck.back, up: peek || open.includes(k) || found.includes(c.w.id), matched: found.includes(c.w.id), onPress: () => tap(k), testID: "pair-" + c.w.id + "-" + c.k }))) : null,
+          deck.cards.map((c, k) => h(Card, { key: round + "-" + c.k, w: c.w, size, back: deck.back, up: open.includes(k) || found.includes(c.w.id), matched: found.includes(c.w.id), onPress: () => tap(k), testID: "pair-" + c.w.id + "-" + c.k }))) : null,
         h(View, { style: { height: 90, alignItems: "center", justifyContent: "center" } },
           done ? h(Pl.PopIn, null, h(Pl.Pulse, { on: true }, h(UI.Pill, { icon: "▶️", label: "Tovább!", color: Th.C.good, onPress: () => (V.hush(), setRound((x) => x + 1)) }))) : null)),
       h(UI.Confetti, { fire }));
