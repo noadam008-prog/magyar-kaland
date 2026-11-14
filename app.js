@@ -11014,7 +11014,7 @@ __d(function (g, r, i, a, m, e, d) {
   const { useState, useEffect, useRef } = React;
   const h = (t, p, ...k) => J.jsx(t, k.length ? { ...p, children: k.length === 1 ? k[0] : k } : p);
   const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
-  const LEVELS = [2, 3, 4, 5, 6, 8]; // pairs per round
+  const LEVELS = [2, 3, 4, 5, 6, 8, 10, 12, 15, 18, 21, 24]; // pairs per round: 4 cards up to 48
   // everyday words a 3–4-year-old knows, per topic (plus any word of the topic she has already heard)
   const EASY = {"tanya": ["kutya", "cica", "tehen", "lo", "malac", "kacsa", "tyuk", "kecske", "barany", "nyul", "liba", "kakas", "szamar", "eger"], "gyumolcs": ["alma", "banan", "korte", "szolo", "eper", "narancs", "citrom", "cseresznye", "dinnye"], "jarmu": ["auto", "busz", "vonat", "repulo", "hajo", "bicikli", "motor", "traktor", "helikopter", "tuzoltoauto"], "vadon": ["oroszlan", "elefant", "zsiraf", "majom", "medve", "tigris", "zebra", "roka", "farkas"], "ruha": ["sapka", "cipo", "zokni", "nadrag", "polo", "kabat", "sal", "kesztyu", "szoknya", "pizsama"], "zoldseg": ["sargarepa", "paradicsom", "uborka", "burgonya", "hagyma", "paprika", "borso"], "jatek": ["labda", "baba", "maci", "kocka", "lufi"], "viz": ["hal", "delfin", "balna", "rak", "polip", "beka"], "etel": ["kenyer", "tej", "sajt", "tojas", "leves", "torta", "keksz", "fagyi"], "konyha": ["kanal", "villa", "tanyer", "pohar", "bogre", "labas"], "furdo": ["fogkefe", "szappan", "torolkozo", "kad", "fesu"], "otthon": ["agy", "asztal", "szek", "lampa", "ajto", "ablak", "kanape", "ora"], "kint": ["fa", "virag", "nap", "hold", "felho", "csillag"]};
   const THEMES = Object.keys(EASY);
@@ -11057,8 +11057,20 @@ __d(function (g, r, i, a, m, e, d) {
       const heard = (s.heard) || {};
       const wordsFor = (t) => { const seen = new Set(); return [...EASY[t].map((id) => D.wordById(id)), ...cardWords(t).filter((w) => heard[w.id])].filter((w) => w && !seen.has(w.id) && seen.add(w.id)); };
       const pool = D.shuffle(THEMES.filter((t) => wordsFor(t).length >= pairs));
-      const t = pool.find((x) => x !== theme) || pool[0] || "tanya";
-      const pick = D.shuffle(wordsFor(t)).slice(0, pairs);
+      let t = pool.find((x) => x !== theme) || pool[0];
+      let pick;
+      if (t) pick = D.shuffle(wordsFor(t)).slice(0, pairs);
+      else {
+        // bigger than any one topic: mix topics until there are enough different pictures
+        t = "vegyes";
+        const seen = new Set();
+        pick = [];
+        for (const th of D.shuffle(THEMES)) {
+          for (const w of D.shuffle(wordsFor(th))) if (!seen.has(w.id)) (seen.add(w.id), pick.push(w));
+          if (pick.length >= pairs * 2) break;
+        }
+        pick = D.shuffle(pick).slice(0, pairs);
+      }
       const cards = D.shuffle([...pick, ...pick].map((w, k) => ({ w, k })));
       const back = BACKS[(round + level) % BACKS.length];
       setTheme(t);
@@ -11071,7 +11083,7 @@ __d(function (g, r, i, a, m, e, d) {
       // load the round's words in the background, so every flip speaks; the short introduction stops at her first tap
       pick.forEach((w) => Promise.resolve(Assets.webAudioUri("w_" + w.id)).catch(() => null));
       (async () => {
-        for (const k of [round === 0 ? "par_start" : "par_tobb", "wn_" + t]) {
+        for (const k of [round === 0 ? "par_start" : "par_tobb", ...(t === "vegyes" ? [] : ["wn_" + t])]) {
           if (!alive.current || !intro.current) return;
           await V.say(k);
         }
@@ -11117,12 +11129,13 @@ __d(function (g, r, i, a, m, e, d) {
     };
     // grid: as big as the cards can be on this screen
     let size = 80, cols = 2;
+    const GAP = deck && deck.cards.length > 16 ? 6 : 12;
     if (area && deck) {
       const n = deck.cards.length;
       let best = 0;
-      for (let c = 2; c <= 4; c++) {
+      for (let c = 2; c <= 8; c++) {
         const rows = Math.ceil(n / c);
-        const sz = Math.min((area.w - 12 * (c + 1)) / c, (area.h - 12 * (rows + 1)) / rows, 170);
+        const sz = Math.min((area.w - GAP * (c + 1)) / c, (area.h - GAP * (rows + 1)) / rows, 170);
         if (sz > best) ((best = sz), (cols = c));
       }
       size = Math.floor(best);
@@ -11130,9 +11143,9 @@ __d(function (g, r, i, a, m, e, d) {
     return h(UI.Sky, { tint: "#E5DBFF" },
       h(UI.TopBar, { onBack: nav.back, title: "Párkereső" }),
       h(View, { style: { flexDirection: "row", justifyContent: "center", gap: 6, paddingBottom: 4 } },
-        LEVELS.map((_, k) => h(View, { key: k, style: { width: 12, height: 12, borderRadius: 6, backgroundColor: k <= level ? "#B197FC" : "#E9DCEB" } }))),
+        LEVELS.map((_, k) => h(View, { key: k, style: { width: 10, height: 10, borderRadius: 5, backgroundColor: k <= level ? "#B197FC" : "#E9DCEB" } }))),
       h(View, { style: { flex: 1, paddingHorizontal: 6, paddingBottom: ins.bottom + 8 }, onLayout: (ev) => { const { width, height } = ev.nativeEvent.layout; setArea((a0) => (a0 && Math.abs(a0.w - width) < 1 && Math.abs(a0.h - (height - 90)) < 1 ? a0 : { w: width, h: height - 90 })); } },
-        deck ? h(View, { style: { flex: 1, flexDirection: "row", flexWrap: "wrap", alignContent: "center", justifyContent: "center", gap: 12, width: cols * size + (cols - 1) * 12, alignSelf: "center" } },
+        deck ? h(View, { style: { flex: 1, flexDirection: "row", flexWrap: "wrap", alignContent: "center", justifyContent: "center", gap: GAP, width: cols * size + (cols - 1) * GAP, alignSelf: "center" } },
           deck.cards.map((c, k) => h(Card, { key: round + "-" + c.k, w: c.w, size, back: deck.back, up: open.includes(k) || found.includes(c.w.id), matched: found.includes(c.w.id), onPress: () => tap(k), testID: "pair-" + c.w.id + "-" + c.k }))) : null,
         h(View, { style: { height: 90, alignItems: "center", justifyContent: "center" } },
           done ? h(Pl.PopIn, null, h(Pl.Pulse, { on: true }, h(UI.Pill, { icon: "▶️", label: "Tovább!", color: Th.C.good, onPress: () => (V.hush(), setRound((x) => x + 1)) }))) : null)),
