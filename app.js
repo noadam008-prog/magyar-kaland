@@ -10034,6 +10034,7 @@ __d(function (global, require, _importDefault, _importAll, module, exports, dep)
       Promise.race([all, sleep(20000)]).then(() => live && setReady(true));
       return () => void (live = false);
     }, []);
+    const beforeRepeat = useRef(null);
     const ask = useRef(() => {});
     const alive = useRef(true);
     const busy = useRef(false);
@@ -10058,7 +10059,15 @@ __d(function (global, require, _importDefault, _importAll, module, exports, dep)
     };
     useEffect(() => {
       if (!ready) return;
-      if (bi > 0) setWorld((w) => applyBeat(w, beat));
+      // A "repeat" beat shows its own little scene. The beat after it must see the scene as it was before
+      // (many beats reuse the previous beat's pictures), so the world is saved going in and restored coming out.
+      if (bi > 0)
+        setWorld((w) => {
+          let base = w;
+          if (beats[bi - 1].t === "repeat" && beforeRepeat.current && beforeRepeat.current.bi === bi - 1) base = beforeRepeat.current.world;
+          if (beat.t === "repeat" && !(beforeRepeat.current && beforeRepeat.current.bi === bi)) beforeRepeat.current = { bi, world: base };
+          return applyBeat(base, beat);
+        });
       setMiss(0);
       setDone({});
       setHeld(null);
