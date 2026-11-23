@@ -11026,7 +11026,8 @@ __d(function (g, r, i, a, m, e, d) {
   const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
   const LEVELS = [2, 3, 4, 5, 6, 8, 10, 12, 15, 18, 21, 24]; // pairs per round: 4 cards up to 48
   // everyday words a 3–4-year-old knows, per topic (plus any word of the topic she has already heard)
-  const EASY = {"tanya": ["kutya", "cica", "tehen", "lo", "malac", "kacsa", "tyuk", "kecske", "barany", "nyul", "liba", "kakas", "szamar", "eger"], "gyumolcs": ["alma", "banan", "korte", "szolo", "eper", "narancs", "citrom", "cseresznye", "dinnye"], "jarmu": ["auto", "busz", "vonat", "repulo", "hajo", "bicikli", "motor", "traktor", "helikopter", "tuzoltoauto"], "vadon": ["oroszlan", "elefant", "zsiraf", "majom", "medve", "tigris", "zebra", "roka", "farkas"], "ruha": ["sapka", "cipo", "zokni", "nadrag", "polo", "kabat", "sal", "kesztyu", "szoknya", "pizsama"], "zoldseg": ["sargarepa", "paradicsom", "uborka", "burgonya", "hagyma", "paprika", "borso"], "jatek": ["labda", "baba", "maci", "kocka", "lufi"], "viz": ["hal", "delfin", "balna", "rak", "polip", "beka"], "etel": ["kenyer", "tej", "sajt", "tojas", "leves", "torta", "keksz", "fagyi"], "konyha": ["kanal", "villa", "tanyer", "pohar", "bogre", "labas"], "furdo": ["fogkefe", "szappan", "torolkozo", "kad", "fesu"], "otthon": ["agy", "asztal", "szek", "lampa", "ajto", "ablak", "kanape", "ora"], "kint": ["fa", "virag", "nap", "hold", "felho", "csillag"]};
+  const EASY = {"tanya": ["kutya", "cica", "tehen", "lo", "malac", "kacsa", "tyuk", "kecske", "barany", "nyul", "liba", "kakas", "szamar", "eger", "csibe", "pulyka"], "gyumolcs": ["alma", "banan", "korte", "szolo", "eper", "narancs", "citrom", "cseresznye", "dinnye", "malna", "afonya", "szilva", "barack", "ananasz", "kivi"], "jarmu": ["auto", "busz", "vonat", "repulo", "hajo", "bicikli", "motor", "traktor", "helikopter", "tuzoltoauto", "mentoauto", "teherauto", "villamos", "taxi", "roller"], "vadon": ["oroszlan", "elefant", "zsiraf", "majom", "medve", "tigris", "zebra", "roka", "farkas", "vizilo", "kenguru", "pingvin", "panda", "krokodil", "mokus", "sun", "bagoly"], "ruha": ["sapka", "cipo", "zokni", "nadrag", "polo", "kabat", "sal", "kesztyu", "szoknya", "pizsama", "csizma", "kalap", "ruha", "papucs"], "zoldseg": ["sargarepa", "paradicsom", "uborka", "burgonya", "hagyma", "paprika", "borso", "kukorica", "brokkoli", "tok", "salata"], "jatek": ["labda", "baba", "maci", "kocka", "lufi", "vodor", "hinta", "csuszda", "epitokocka"], "viz": ["hal", "delfin", "balna", "rak", "polip", "beka", "teknos", "capa", "foka", "meduza", "kagylo"], "etel": ["kenyer", "tej", "sajt", "tojas", "leves", "torta", "keksz", "fagyi", "kifli", "csoki", "teszta", "fank"], "konyha": ["kanal", "villa", "tanyer", "pohar", "bogre", "labas", "kes", "tal", "serpenyo"], "furdo": ["fogkefe", "szappan", "torolkozo", "kad", "fesu", "fogkrem"], "otthon": ["agy", "asztal", "szek", "lampa", "ajto", "ablak", "kanape", "ora", "kulcs", "telefon", "konyv", "parna"], "kint": ["fa", "virag", "nap", "hold", "felho", "csillag", "ko", "szivarvany", "eso", "hoember", "level", "pillango"], "bogar": ["katica", "mehecske", "pillango", "hangya", "csiga", "pok"], "zene": ["dob", "gitar", "zongora", "trombita", "hegedu", "furulya"]};
+  let RECENT = []; // the last topics played, so the same one does not come back too soon
   const THEMES = Object.keys(EASY);
   const BACKS = ["#FF8FC8", "#B197FC", "#4DABF7", "#FFC83D", "#69DB7C", "#FF922B"];
   const PICS = {};
@@ -11069,20 +11070,27 @@ __d(function (g, r, i, a, m, e, d) {
       const pairs = LEVELS[level];
       const heard = (s.heard) || {};
       const wordsFor = (t) => { const seen = new Set(); return [...EASY[t].map((id) => D.wordById(id)), ...cardWords(t).filter((w) => heard[w.id])].filter((w) => w && !seen.has(w.id) && seen.add(w.id)); };
-      const pool = D.shuffle(THEMES.filter((t) => wordsFor(t).length >= pairs));
-      let t = pool.find((x) => x !== theme) || pool[0];
-      let pick;
-      if (t) pick = D.shuffle(wordsFor(t)).slice(0, pairs);
-      else {
-        // bigger than any one topic: mix topics until there are enough different pictures
+      const fits = THEMES.filter((x) => wordsFor(x).length >= pairs);
+      let t, pick;
+      if (fits.length >= 4) {
+        // one topic, never one of the last few
+        const avoid = RECENT.slice(-Math.min(5, fits.length - 1));
+        t = D.pick(fits.filter((x) => !avoid.includes(x)));
+        pick = D.shuffle(wordsFor(t)).slice(0, pairs);
+        RECENT = [...RECENT.filter((x) => x !== t), t].slice(-8);
+      } else {
+        // a round too big for most topics: mix a few topics, the least recently played first
         t = "vegyes";
-        const seen = new Set();
+        const order = [...D.shuffle(THEMES.filter((x) => !RECENT.includes(x))), ...RECENT.filter((x) => THEMES.includes(x))];
+        const seen = new Set(), used = [];
         pick = [];
-        for (const th of D.shuffle(THEMES)) {
-          for (const w of D.shuffle(wordsFor(th))) if (!seen.has(w.id)) (seen.add(w.id), pick.push(w));
-          if (pick.length >= pairs * 2) break;
+        for (const th of order) {
+          used.push(th);
+          for (const w of wordsFor(th)) if (!seen.has(w.id)) (seen.add(w.id), pick.push(w));
+          if (pick.length >= pairs) break;
         }
         pick = D.shuffle(pick).slice(0, pairs);
+        RECENT = [...RECENT.filter((x) => !used.includes(x)), ...used].slice(-8);
       }
       const cards = D.shuffle([...pick, ...pick].map((w, k) => ({ w, k })));
       const back = BACKS[(round + level) % BACKS.length];

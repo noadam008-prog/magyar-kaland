@@ -47,7 +47,24 @@
     if (cs.overflowX === "hidden" && cs.overflowY === "hidden") { t.scrollTop = 0; t.scrollLeft = 0; }
   }, true);
   if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js");
+  // New versions: on a tablet the app is usually brought back from the background, not relaunched, so it would
+  // keep running an old copy for days. Each time it comes to the front (never in the middle of play), look at the live
+  // start page; if it points to a newer app.js, reload.
+  (function () {
+    var checking = false, last = 0;
+    function current() { var el = document.querySelector('script[src^="app.js?v="]'); return el ? el.getAttribute("src").split("v=")[1] : ""; }
+    function check() {
+      if (checking || Date.now() - last < 60000 || !navigator.onLine) return;
+      checking = true; last = Date.now();
+      fetch("index.html?nocache=" + Date.now(), { cache: "no-store" }).then(function (r) { return r.ok ? r.text() : ""; }).then(function (t) {
+        var m = /app\.js\?v=([0-9a-f]{10})/.exec(t);
+        if (m && current() && m[1] !== current()) location.reload();
+      }).catch(function () {}).then(function () { checking = false; });
+    }
+    document.addEventListener("visibilitychange", function () { if (document.visibilityState === "visible") check(); });
+    window.addEventListener("pageshow", function (e) { if (e.persisted) check(); });
+  })();
 </script>
-<script src="app.js?v=811f5a842a" defer></script>
+<script src="app.js?v=60a27c02a5" defer></script>
 </body>
 </html>
