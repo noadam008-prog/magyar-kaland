@@ -11015,7 +11015,8 @@ __r(7002);
 // Párkereső: the classic memory game, growing. All cards lie face down; a tap turns over one card (and says
 // the word), a second tap a second card: a pair stays open, otherwise both turn back (no "wrong" sound).
 // Round by round there are more cards: 2 pairs, 3, 4, 5, 6, then 8. Each round is one topic.
-// The level is kept in games.parok_szint, so it syncs.
+// The level she plays at is parokSzint; the minus and plus buttons at the top make the round smaller or bigger
+// (plus only up to the highest level she has reached, games.parok_szint). Both sync with her progress.
 __d(function (g, r, i, a, m, e, d) {
   "use strict";
   const React = r(d[0]), View = r(d[1]).default, Text = r(d[2]).default, UI = r(d[3]), Th = r(d[4]), V = r(d[5]), J = r(d[6]);
@@ -11045,7 +11046,9 @@ __d(function (g, r, i, a, m, e, d) {
   function Parok({ nav }) {
     const { s, set } = Store.useStore();
     const ins = SafeArea.useSafeAreaInsets();
-    const level = Math.min(LEVELS.length - 1, Math.max(0, (s.games && s.games.parok_szint) || 0));
+    const clamp = (n) => Math.min(LEVELS.length - 1, Math.max(0, n));
+    const best = clamp((s.games && s.games.parok_szint) || 0); // the highest level reached
+    const level = clamp(typeof s.parokSzint === "number" ? s.parokSzint : best); // the level played now
     const [round, setRound] = useState(0);
     const [deck, setDeck] = useState(null);
     const [theme, setTheme] = useState(null);
@@ -11058,6 +11061,7 @@ __d(function (g, r, i, a, m, e, d) {
     const [area, setArea] = useState(null);
     const busy = useRef(false);
     const intro = useRef(false);
+    const prevLevel = useRef(null);
     const alive = useRef(true);
     useEffect(() => () => ((alive.current = false), V.hush()), []);
     // deal a new round
@@ -11092,7 +11096,10 @@ __d(function (g, r, i, a, m, e, d) {
       // load the round's words in the background, so every flip speaks; the short introduction stops at her first tap
       pick.forEach((w) => Promise.resolve(Assets.webAudioUri("w_" + w.id)).catch(() => null));
       (async () => {
-        for (const k of [round === 0 ? "par_start" : "par_tobb", ...(t === "vegyes" ? [] : ["wn_" + t])]) {
+        // "Most több kártya jön!" only when the round really got bigger
+        const bigger = prevLevel.current !== null && level > prevLevel.current;
+        prevLevel.current = level;
+        for (const k of [bigger ? "par_tobb" : "par_start", ...(t === "vegyes" ? [] : ["wn_" + t])]) {
           if (!alive.current || !intro.current) return;
           await V.say(k);
         }
@@ -11124,7 +11131,7 @@ __d(function (g, r, i, a, m, e, d) {
           setFire((f) => f + 1);
           setDone(true);
           const st = Store.finishRound(set, s, "parok");
-          set((x) => ({ games: { ...x.games, parok_szint: Math.min(LEVELS.length - 1, ((x.games && x.games.parok_szint) || 0) + 1) } }));
+          set((x) => ({ parokSzint: clamp(level + 1), games: { ...x.games, parok_szint: Math.max((x.games && x.games.parok_szint) || 0, clamp(level + 1)) } }));
           await V.say("par_done");
           await V.say("matrica");
           void st;
@@ -11136,6 +11143,17 @@ __d(function (g, r, i, a, m, e, d) {
       }
       busy.current = false;
     };
+    // smaller or bigger rounds on request: a new round is dealt at the chosen level
+    const change = (dir) => {
+      const nl = clamp(level + dir);
+      if (nl === level || (dir > 0 && nl > best)) return;
+      V.hush();
+      set(() => ({ parokSzint: nl }));
+      setRound((x) => x + 1);
+    };
+    const stepBtn = (sign, label, on, onPress, testID) =>
+      h(UI.Bouncy, { onPress, disabled: !on, label, testID, style: { width: 58, height: 58, borderRadius: 29, alignItems: "center", justifyContent: "center", backgroundColor: "#FFFFFF", opacity: on ? 1 : 0.35 } },
+        h(Text, { style: { fontFamily: Th.F.bold, fontSize: 40, lineHeight: 46, color: "#7950F2" } }, sign));
     // grid: as big as the cards can be on this screen
     let size = 80, cols = 2;
     const GAP = deck && deck.cards.length > 16 ? 6 : 12;
@@ -11151,8 +11169,13 @@ __d(function (g, r, i, a, m, e, d) {
     }
     return h(UI.Sky, { tint: "#E5DBFF" },
       h(UI.TopBar, { onBack: nav.back, title: "Párkereső" }),
-      h(View, { style: { flexDirection: "row", justifyContent: "center", gap: 6, paddingBottom: 4 } },
-        LEVELS.map((_, k) => h(View, { key: k, style: { width: 10, height: 10, borderRadius: 5, backgroundColor: k <= level ? "#B197FC" : "#E9DCEB" } }))),
+      h(View, { style: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 14, paddingBottom: 6 } },
+        stepBtn("−", "Kevesebb kártya", level > 0, () => change(-1), "par-minus"),
+        h(View, { style: { alignItems: "center", gap: 4 } },
+          h(Text, { style: { fontFamily: Th.F.bold, fontSize: Th.T.s, color: Th.C.inkSoft }, testID: "par-count" }, LEVELS[level] * 2 + " kártya"),
+          h(View, { style: { flexDirection: "row", gap: 5 } },
+            LEVELS.map((_, k) => h(View, { key: k, style: { width: 10, height: 10, borderRadius: 5, backgroundColor: k <= level ? "#B197FC" : k <= best ? "#D0BFFF" : "#E9DCEB" } })))),
+        stepBtn("+", "Több kártya", level < best, () => change(1), "par-plus")),
       h(View, { style: { flex: 1, paddingHorizontal: 6, paddingBottom: ins.bottom + 8 }, onLayout: (ev) => { const { width, height } = ev.nativeEvent.layout; setArea((a0) => (a0 && Math.abs(a0.w - width) < 1 && Math.abs(a0.h - (height - 90)) < 1 ? a0 : { w: width, h: height - 90 })); } },
         deck ? h(View, { style: { flex: 1, flexDirection: "row", flexWrap: "wrap", alignContent: "center", justifyContent: "center", gap: GAP, width: cols * size + (cols - 1) * GAP, alignSelf: "center" } },
           deck.cards.map((c, k) => h(Card, { key: round + "-" + c.k, w: c.w, size, back: deck.back, up: open.includes(k) || found.includes(c.w.id), matched: found.includes(c.w.id), onPress: () => tap(k), testID: "pair-" + c.w.id + "-" + c.k }))) : null,
